@@ -1,46 +1,51 @@
 import json
 import random
 import uuid
+import time
 from flask import Flask, render_template, request, session, redirect, url_for
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # Needed for session tracking
+app.secret_key = "your_secret_key"
 
-# Load flashcards from JSON
-def load_flashcards():
-    with open("flashcards.json", "r", encoding="utf-8") as file:
-        return json.load(file)
+# Load flashcards into memory at startup
+with open("flashcards.json", "r", encoding="utf-8") as file:
+    FLASHCARDS = json.load(file)
 
-# Load user progress from JSON
+# Cache user progress in memory to reduce file reads
+progress_cache = None
+last_load_time = 0
+LOAD_INTERVAL = 10  # Refresh progress data every 10 seconds
+
 def load_progress():
-    try:
-        with open("progress.json", "r", encoding="utf-8") as file:
-            return json.load(file)
-    except FileNotFoundError:
-        return {}
+    global progress_cache, last_load_time
+    if time.time() - last_load_time > LOAD_INTERVAL or progress_cache is None:
+        try:
+            with open("progress.json", "r", encoding="utf-8") as file:
+                progress_cache = json.load(file)
+                last_load_time = time.time()
+        except FileNotFoundError:
+            progress_cache = {}
+    return progress_cache
 
-# Save user progress to JSON
 def save_progress(progress):
+    global progress_cache
+    progress_cache = progress  # Update cache
     with open("progress.json", "w", encoding="utf-8") as file:
         json.dump(progress, file, indent=4)
 
 @app.route("/", methods=["GET", "POST"])
 def home():
-    # Ensure the user has a unique ID
     if "user_id" not in session:
-        session["user_id"] = str(uuid.uuid4())  # Generate a random ID
+        session["user_id"] = str(uuid.uuid4())  # Assign unique user ID
 
     user_id = session["user_id"]
-    flashcards = load_flashcards()
     progress = load_progress()
 
-    # Initialize user progress
     if user_id not in progress:
         progress[user_id] = {"known_words": [], "unknown_words": []}
 
     user_progress = progress[user_id]
 
-    # Handle user input
     if request.method == "POST":
         word_english = request.form.get("word_english")
         action = request.form.get("action")
@@ -51,21 +56,19 @@ def home():
         elif action == "unknown" and word_english not in user_progress["unknown_words"]:
             user_progress["unknown_words"].append(word_english)
 
-        # Save updated progress
+        # Only update session if progress changes
+        session.modified = True
         save_progress(progress)
 
-    # Filter out known words
     remaining_words = [
-        word for word in flashcards if word["english"] not in user_progress["known_words"]
+        word for word in FLASHCARDS if word["english"] not in user_progress["known_words"]
     ]
 
-    # If all words are known, reset progress
     if not remaining_words:
         user_progress["known_words"] = []
         save_progress(progress)
-        remaining_words = flashcards
+        remaining_words = FLASHCARDS
 
-    # Pick a random word
     word = random.choice(remaining_words)
 
     return render_template("index.html", word=word, known_count=len(user_progress["known_words"]))
@@ -80,7 +83,7 @@ def reset_progress():
             progress[user_id] = {"known_words": [], "unknown_words": []}
             save_progress(progress)
 
-    return redirect(url_for("home"))  # Redirect back to homepage
+    return redirect(url_for("home"))
 
 if __name__ == "__main__":
     app.run(debug=True)
