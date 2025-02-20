@@ -1,7 +1,7 @@
 import json
 import random
-import uuid  # Generate unique user IDs
-from flask import Flask, render_template, request, session
+import uuid
+from flask import Flask, render_template, request, session, redirect, url_for
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"  # Needed for session tracking
@@ -11,7 +11,7 @@ def load_flashcards():
     with open("flashcards.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
-# Load user progress
+# Load user progress from JSON
 def load_progress():
     try:
         with open("progress.json", "r", encoding="utf-8") as file:
@@ -19,7 +19,7 @@ def load_progress():
     except FileNotFoundError:
         return {}
 
-# Save user progress
+# Save user progress to JSON
 def save_progress(progress):
     with open("progress.json", "w", encoding="utf-8") as file:
         json.dump(progress, file, indent=4)
@@ -34,7 +34,7 @@ def home():
     flashcards = load_flashcards()
     progress = load_progress()
 
-    # Initialize progress for new users
+    # Initialize user progress
     if user_id not in progress:
         progress[user_id] = {"known_words": [], "unknown_words": []}
 
@@ -69,6 +69,18 @@ def home():
     word = random.choice(remaining_words)
 
     return render_template("index.html", word=word, known_count=len(user_progress["known_words"]))
+
+@app.route("/reset", methods=["POST"])
+def reset_progress():
+    user_id = session.get("user_id")
+
+    if user_id:
+        progress = load_progress()
+        if user_id in progress:
+            progress[user_id] = {"known_words": [], "unknown_words": []}
+            save_progress(progress)
+
+    return redirect(url_for("home"))  # Redirect back to homepage
 
 if __name__ == "__main__":
     app.run(debug=True)
