@@ -16,13 +16,22 @@
 
         <div class="progress mt-3" style="height: 30px;">
             <div class="progress-bar bg-success" role="progressbar" 
-                 style="width: {{ (known_count / total) * 100 }}%;" 
+                 style="width: {% if total > 0 %}{{ (known_count / total) * 100 }}{% else %}0{% endif %}%;" 
                  aria-valuenow="{{ known_count }}" 
                  aria-valuemin="0" 
                  aria-valuemax="{{ total }}">
-                {{ (known_count / total) * 100 | round(1) }}%
+                {% if total > 0 %}
+                    {{ (known_count / total) * 100 | round(1) }}%
+                {% else %}
+                    0%
+                {% endif %}
             </div>
         </div>
+
+        <!-- Reset Progress Button -->
+        <form action="/reset_progress" method="post" class="mt-4">
+            <button type="submit" class="btn btn-danger">🔄 Reset Progress</button>
+        </form>
 
         <a href="/menu" class="btn btn-primary mt-4">📖 Back to Menu</a>
     </div>

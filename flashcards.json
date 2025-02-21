@@ -1,7 +1,11 @@
 [
-    {"english": "apple", "french": "pomme"},
-    {"english": "house", "french": "maison"},
-    {"english": "car", "french": "voiture"},
-    {"english": "cat", "french": "chat"},
-    {"english": "dog", "french": "chien"}
+    {"english": "apple", "french": "pomme", "spanish": "manzana", "german": "Apfel", "portuguese": "maçã", "italian": "mela", "level": 1},
+    {"english": "house", "french": "maison", "spanish": "casa", "german": "Haus", "portuguese": "casa", "italian": "casa", "level": 1},
+    {"english": "car", "french": "voiture", "spanish": "coche", "german": "Auto", "portuguese": "carro", "italian": "macchina", "level": 1},
+    {"english": "friend", "french": "ami", "spanish": "amigo", "german": "Freund", "portuguese": "amigo", "italian": "amico", "level": 1},
+    
+    {"english": "knowledge", "french": "connaissance", "spanish": "conocimiento", "german": "Wissen", "portuguese": "conhecimento", "italian": "conoscenza", "level": 2},
+    {"english": "beautiful", "french": "beau", "spanish": "hermoso", "german": "schön", "portuguese": "bonito", "italian": "bello", "level": 2},
+    {"english": "difficult", "french": "difficile", "spanish": "difícil", "german": "schwierig", "portuguese": "difícil", "italian": "difficile", "level": 2},
+    {"english": "happiness", "french": "bonheur", "spanish": "felicidad", "german": "Glück", "portuguese": "felicidade", "italian": "felicità", "level": 2}
 ]

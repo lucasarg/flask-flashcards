@@ -6,13 +6,18 @@
 <body>
     <h1>Flashcards</h1>
 
-    <p>Word in {{ target_language }}: <strong>{{ translation }}</strong></p>
+    {% if word %}
+        <p>Word in {{ session.get("target_language", "English") }}: <strong>{{ word.translation }}</strong></p>
+        <p>(English: <strong>{{ word.english }}</strong>)</p>
 
-    <form method="post">
-        <input type="hidden" name="word_english" value="{{ word.english }}">
-        <button type="submit" name="action" value="known">✅ I Know This</button>
-        <button type="submit" name="action" value="unknown">❌ I Don’t Know This</button>
-    </form>
+        <form method="post">
+            <input type="hidden" name="word_id" value="{{ word.id }}">
+            <button type="submit" name="action" value="known">✅ I Know This</button>
+            <button type="submit" name="action" value="unknown">❌ I Don’t Know This</button>
+        </form>
+    {% else %}
+        <h2>No words available.</h2>
+    {% endif %}
 
     <a href="/menu">📖 Main Menu</a>
 </body>
