@@ -2,21 +2,22 @@ import json
 import random
 import uuid
 import time
-from flask import Flask, render_template, request, session, redirect, url_for
+from flask import Flask, render_template, request, session, redirect, url_for, send_file
 
 app = Flask(__name__)
 app.secret_key = "your_secret_key"
 
-# Load flashcards into memory at startup
+# Load flashcards into memory
 with open("flashcards.json", "r", encoding="utf-8") as file:
     FLASHCARDS = json.load(file)
 
-# Cache user progress in memory to reduce file reads
+# Cache user progress in memory
 progress_cache = None
 last_load_time = 0
-LOAD_INTERVAL = 10  # Refresh progress data every 10 seconds
+LOAD_INTERVAL = 10
 
 def load_progress():
+    """Load user progress from JSON with caching"""
     global progress_cache, last_load_time
     if time.time() - last_load_time > LOAD_INTERVAL or progress_cache is None:
         try:
@@ -28,11 +29,13 @@ def load_progress():
     return progress_cache
 
 def save_progress(progress):
+    """Save user progress to JSON file"""
     global progress_cache
-    progress_cache = progress  # Update cache
+    progress_cache = progress
     with open("progress.json", "w", encoding="utf-8") as file:
         json.dump(progress, file, indent=4)
 
+# 🌍 Arriving Page (First-Time Setup)
 @app.route("/", methods=["GET", "POST"])
 def home():
     if "user_id" not in session:
@@ -41,11 +44,29 @@ def home():
     user_id = session["user_id"]
     progress = load_progress()
 
+    if request.method == "POST":
+        progress[user_id] = {
+            "known_words": [],
+            "unknown_words": [],
+            "target_language": request.form["target_language"],
+            "level": int(request.form["level"])
+        }
+        save_progress(progress)
+        return redirect(url_for("flashcards"))
+
+    return render_template("home.html")
+
+# 🃏 Flashcard Page
+@app.route("/flashcards", methods=["GET", "POST"])
+def flashcards():
+    user_id = session.get("user_id")
+    progress = load_progress()
+
     if user_id not in progress:
-        progress[user_id] = {"known_words": [], "unknown_words": []}
+        return redirect(url_for("home"))
 
     user_progress = progress[user_id]
-
+    
     if request.method == "POST":
         word_english = request.form.get("word_english")
         action = request.form.get("action")
@@ -56,8 +77,6 @@ def home():
         elif action == "unknown" and word_english not in user_progress["unknown_words"]:
             user_progress["unknown_words"].append(word_english)
 
-        # Only update session if progress changes
-        session.modified = True
         save_progress(progress)
 
     remaining_words = [
@@ -70,20 +89,66 @@ def home():
         remaining_words = FLASHCARDS
 
     word = random.choice(remaining_words)
+    target_language = user_progress["target_language"]
+    translation = word[target_language]
 
-    return render_template("index.html", word=word, known_count=len(user_progress["known_words"]))
+    return render_template("flashcards.html", word=word, translation=translation)
 
-@app.route("/reset", methods=["POST"])
-def reset_progress():
+# 📖 Main Menu
+@app.route("/menu")
+def menu():
+    return render_template("menu.html")
+
+# 📊 Progress Page
+@app.route("/progress")
+def progress():
     user_id = session.get("user_id")
+    progress = load_progress()
 
-    if user_id:
-        progress = load_progress()
-        if user_id in progress:
-            progress[user_id] = {"known_words": [], "unknown_words": []}
-            save_progress(progress)
+    if not user_id or user_id not in progress:
+        return "No progress found.", 404
 
-    return redirect(url_for("home"))
+    user_progress = progress[user_id]
+    known_count = len(user_progress.get("known_words", []))
+    unknown_count = len(user_progress.get("unknown_words", []))
+    
+    # Ensure total is at least 1 to prevent division errors
+    total = max(known_count + unknown_count, 1)
+
+    return render_template("progress.html", known_count=known_count, unknown_count=unknown_count, total=total)
+
+
+# 📋 Word List Page
+@app.route("/words")
+def words():
+    user_id = session.get("user_id")
+    progress = load_progress()
+
+    if not user_id or user_id not in progress:
+        return "No progress found.", 404
+
+    user_progress = progress[user_id]
+    known_words = user_progress.get("known_words", [])
+    unknown_words = user_progress.get("unknown_words", [])
+
+    return render_template("words.html", known_words=known_words, unknown_words=unknown_words)
+
+# ⚙️ Settings Page (Change Language/Level)
+@app.route("/settings", methods=["GET", "POST"])
+def settings():
+    user_id = session.get("user_id")
+    progress = load_progress()
+
+    if not user_id or user_id not in progress:
+        return redirect(url_for("home"))
+
+    if request.method == "POST":
+        progress[user_id]["target_language"] = request.form["target_language"]
+        progress[user_id]["level"] = int(request.form["level"])
+        save_progress(progress)
+        return redirect(url_for("flashcards"))
+
+    return render_template("settings.html")
 
 if __name__ == "__main__":
     app.run(debug=True)

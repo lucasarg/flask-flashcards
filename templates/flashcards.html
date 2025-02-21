@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flashcards</title>
+</head>
+<body>
+    <h1>Flashcards</h1>
+
+    <p>Word in {{ target_language }}: <strong>{{ translation }}</strong></p>
+
+    <form method="post">
+        <input type="hidden" name="word_english" value="{{ word.english }}">
+        <button type="submit" name="action" value="known">✅ I Know This</button>
+        <button type="submit" name="action" value="unknown">❌ I Don’t Know This</button>
+    </form>
+
+    <a href="/menu">📖 Main Menu</a>
+</body>
+</html>
