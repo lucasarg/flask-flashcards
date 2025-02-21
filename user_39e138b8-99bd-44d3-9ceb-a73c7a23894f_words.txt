@@ -1,0 +1,13 @@
+✅ Known Words:
+beautiful - beau
+friend - ami
+apple - pomme
+house - maison
+happiness - bonheur
+difficult - difficile
+
+❌ Unknown Words:
+house - maison
+house - maison
+difficult - difficile
+difficult - difficile

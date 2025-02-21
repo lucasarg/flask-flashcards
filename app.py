@@ -1,9 +1,12 @@
-from flask import Flask, render_template, request, session, redirect, url_for, send_file
+from flask import Flask, render_template, request, session, Response,redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 import json
 import random
 import uuid
 import os
+import pandas as pd
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
 
 # Initialize Flask
 app = Flask(__name__)
@@ -67,6 +70,8 @@ def home():
         # Guardamos idioma y nivel en la sesión
         session["target_language"] = request.form["target_language"]
         session["level"] = int(request.form["level"])
+        print(f"🌍 Language: {session['target_language']} | 📖 Level: {session['level']}")
+
         return redirect(url_for("flashcards"))
 
     return render_template("home.html")
@@ -93,7 +98,16 @@ def flashcards():
 
     # Retrieve words user hasn't marked as known
     known_word_ids = [p.word_id for p in Progress.query.filter_by(user_id=user_id, known=True).all()]
-    remaining_words = Word.query.filter(~Word.id.in_(known_word_ids)).all()
+    # Get the user's selected language and level
+    selected_language = session.get("target_language", "french")  # Default to French
+    selected_level = session.get("level", 1)  # Default to level 1
+
+    # Query only words that match the language and level
+    remaining_words = Word.query.filter(
+        ~Word.id.in_(known_word_ids),
+        Word.language == selected_language,
+        Word.level == selected_level
+    ).all()
 
     # 🔹 DEBUG: Print the list of remaining words
     print("Remaining words:", remaining_words)
@@ -116,8 +130,9 @@ def flashcards():
 
 
 
-@app.route("/download")
-def download_list():
+@app.route("/download_csv")
+def download_csv():
+    """Export known & unknown words as a CSV file."""
     user_id = session.get("user_id")
 
     if not user_id:
@@ -137,18 +152,66 @@ def download_list():
         .all()
     )
 
-    filename = f"user_{user_id}_words.txt"
-    with open(filename, "w") as file:
-        file.write("✅ Known Words:\n")
-        for eng, trans in known_words:
-            file.write(f"{eng} - {trans}\n")
+    data = pd.DataFrame(known_words, columns=["English", "Translation"])
+    data["Status"] = "✅ Known"
+    data_unknown = pd.DataFrame(unknown_words, columns=["English", "Translation"])
+    data_unknown["Status"] = "❌ Unknown"
+    data = pd.concat([data, data_unknown])
 
-        file.write("\n❌ Unknown Words:\n")
-        for eng, trans in unknown_words:
-            file.write(f"{eng} - {trans}\n")
+    csv_data = data.to_csv(index=False)
+
+    return Response(
+        csv_data,
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment;filename=word_list.csv"},
+    )
+
+@app.route("/download_pdf")
+def download_pdf():
+    """Export known & unknown words as a PDF file."""
+    user_id = session.get("user_id")
+
+    if not user_id:
+        return "No progress found.", 404
+
+    known_words = (
+        db.session.query(Word.english, Word.translation)
+        .join(Progress, Progress.word_id == Word.id)
+        .filter(Progress.user_id == user_id, Progress.known == True)
+        .all()
+    )
+
+    unknown_words = (
+        db.session.query(Word.english, Word.translation)
+        .join(Progress, Progress.word_id == Word.id)
+        .filter(Progress.user_id == user_id, Progress.known == False)
+        .all()
+    )
+
+    filename = f"user_{user_id}_words.pdf"
+    pdf = canvas.Canvas(filename, pagesize=letter)
+    pdf.setFont("Helvetica", 12)
+
+    y_position = 750  # Start position for text
+
+    pdf.drawString(100, y_position, "✅ Known Words:")
+    y_position -= 20
+
+    for eng, trans in known_words:
+        pdf.drawString(100, y_position, f"{eng} - {trans}")
+        y_position -= 15
+
+    y_position -= 30
+    pdf.drawString(100, y_position, "❌ Unknown Words:")
+    y_position -= 20
+
+    for eng, trans in unknown_words:
+        pdf.drawString(100, y_position, f"{eng} - {trans}")
+        y_position -= 15
+
+    pdf.save()
 
     return send_file(filename, as_attachment=True)
-
 
 # 📖 Main Menu
 @app.route("/menu")
